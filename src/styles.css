@@ -82,7 +82,7 @@ p { line-height: 1.65; }
 .movie-row { display: flex; gap: 20px; overflow: auto; padding: 8px; margin: -8px; scroll-snap-type: x proximity; scrollbar-width: thin; scrollbar-color: #4a4142 transparent; }
 .movie-card { padding: 0; width: clamp(245px, 26vw, 350px); flex: 0 0 auto; border: 0; border-radius: 6px; background: none; text-align: left; scroll-snap-align: start; }
 .card-art { height: 0; padding-top: 56.25%; position: relative; border-radius: 5px; overflow: hidden; background: #392027; }
-.card-art > .title-art { position: absolute; inset: 0; height: auto; }
+.card-art > .title-art { position: absolute; top: 0; right: 0; bottom: 0; left: 0; height: auto; }
 .card-art .title-art > span { font-size: 55px; }
 .card-art .art-frame { inset: 14% 18%; }
 .card-format { position: absolute; right: 12px; top: 12px; background: #09090980; padding: 3px 6px; border-radius: 3px; font-size: 10px; }
