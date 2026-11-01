@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Play, Search, Settings, RefreshCw, Info, FolderOpen, ArrowRight, Clapperboard, MonitorPlay, X, Check, Eye, EyeOff, AlertCircle } from 'lucide-react';
+import { Play, Search, RefreshCw, Info, FolderOpen, ArrowRight, Clapperboard, MonitorPlay, X, Check, Eye, EyeOff, AlertCircle } from 'lucide-react';
 import { listVideos, parseFolder } from './drive.js';
 import { moveFocus } from './navigation.js';
 import { readSaved, writeSaved, progressEntry, deviceStorage } from './storage.js';
@@ -7,8 +7,8 @@ import { movieInfo, clockTime } from './media.js';
 import Modal from './Modal.jsx';
 import Player from './Player.jsx';
 import Artwork from './Artwork.jsx';
-import { ARTWORK_CACHE_KEY, loadFolderArtwork } from './tmdb.js';
-import { TMDB_TOKEN, DEFAULT_FOLDER, DRIVE_API_KEY, SETTINGS_KEY, initialConfig } from './config.js';
+import { loadFolderArtwork } from './tmdb.js';
+import { TMDB_TOKEN, DEFAULT_FOLDER, SETTINGS_KEY, initialConfig } from './config.js';
 const PROGRESS_KEY = 'drive-tv.progress';
 
 function Badges({ file }) {
@@ -16,9 +16,9 @@ function Badges({ file }) {
   return <div className="badges">{info.year && <span>{info.year}</span>}{info.resolution && <span className="outline-badge">{info.resolution}</span>}<span className="outline-badge">{info.format}</span>{info.size && <span>{info.size}</span>}</div>;
 }
 
-function SettingsPanel({ config, onSave, onForget, onClose }) {
-  const [folder, setFolder] = useState(config?.folder || DEFAULT_FOLDER);
-  const [key, setKey] = useState(config?.key || DRIVE_API_KEY);
+function SettingsPanel({ onSave, onClose }) {
+  const [folder, setFolder] = useState(DEFAULT_FOLDER);
+  const [key, setKey] = useState('');
   const [show, setShow] = useState(false);
   const [error, setError] = useState('');
   function submit(event) {
@@ -31,7 +31,7 @@ function SettingsPanel({ config, onSave, onForget, onClose }) {
   }
   return <Modal label="Library settings" onClose={onClose} className="settings-modal">
     <div className="modal-symbol"><FolderOpen size={30} /></div>
-    <h2>{config ? 'Your library settings' : 'Connect your library'}</h2>
+    <h2>Connect your library</h2>
     <p className="muted">Add a public Drive folder. Your videos play directly from Google.</p>
     <form onSubmit={submit}>
       <label htmlFor="folder">Google Drive folder link</label>
@@ -42,9 +42,8 @@ function SettingsPanel({ config, onSave, onForget, onClose }) {
         <button type="button" className="icon-button" aria-label={show ? 'Hide API key' : 'Show API key'} onClick={() => setShow(!show)}>{show ? <EyeOff /> : <Eye />}</button></div>
       <p className="field-help">Saved in this browser. No Google sign-in needed. Only public files are accessible with this key.</p>
       {error && <p className="form-error" role="alert">{error}</p>}
-      <button type="submit" className="button primary wide">{config ? 'Save and reload' : 'Open library'}<ArrowRight /></button>
+      <button type="submit" className="button primary wide">Open library<ArrowRight /></button>
     </form>
-    {config && <button className="text-button forget" onClick={onForget}>Forget this device</button>}
   </Modal>;
 }
 
@@ -146,10 +145,6 @@ export default function App() {
     setStorageNotice(saved ? '' : 'Your browser cannot save settings. The library will work until you close this page.');
     setConfig(value); setDialog(null); setSearch('');
   }
-  function forget() {
-    try { const storage = deviceStorage(); storage?.removeItem(SETTINGS_KEY); storage?.removeItem(PROGRESS_KEY); storage?.removeItem(ARTWORK_CACHE_KEY); } catch { /* Browser storage can be disabled. */ }
-    setConfig(null); setProgress({}); setDialog(null); setFiles([]); setSearch(''); setLoadError(''); setStorageNotice('');
-  }
   const featured = files[0];
   const featuredInfo = featured && movieInfo(featured);
   const visible = files.filter(file => movieInfo(file).title.toLowerCase().includes(search.toLowerCase()));
@@ -162,7 +157,7 @@ export default function App() {
         <button className="wordmark" aria-label="Drive TV home" onClick={() => { setSearch(''); window.scrollTo({ top: 0, behavior: 'smooth' }); }}><span className="brand-mark"><Play size={18} fill="currentColor" /></span>DRIVE<span>TV</span></button>
         <nav aria-label="Main navigation"><button className="nav-link active" onClick={() => { setSearch(''); document.getElementById('library')?.scrollIntoView({ behavior: 'smooth' }); }}>My library</button></nav>
         <div className="header-tools">{config && <div className="search-field"><Search size={18} /><input aria-label="Search your library" placeholder="Search your library" value={search} onChange={event => setSearch(event.target.value)} />{search && <button aria-label="Clear search" className="icon-button" onClick={() => setSearch('')}><X size={16} /></button>}</div>}
-          <button className="icon-button settings-button" aria-label="Settings" onClick={() => setDialog('settings')}><Settings size={21} /></button><span className="profile" aria-hidden="true">M</span></div>
+        </div>
       </header>
 
       <main>
@@ -172,7 +167,7 @@ export default function App() {
           <p className="hero-description">A quiet place for your movie nights. Connect your Google Drive, pick something good, and press play.</p>
           <div className="actions"><button className="button primary" onClick={() => setDialog('settings')}><FolderOpen size={21} />Connect Google Drive</button></div>
           <p className="hero-footnote">No sign-in. Just your shared folder.</p>
-        </div></section> : loading ? <section className="loading-state" role="status"><div className="loading-reel"><Clapperboard size={38} /></div><h1>Opening your library</h1><p>Finding the videos in your Drive folder…</p></section> : loadError ? <section className="empty-state error-state" role="alert"><AlertCircle size={40} /><h1>Let’s reconnect your library</h1><p>{loadError}</p><div className="actions"><button className="button primary" onClick={() => setDialog('settings')}><Settings /> Check settings</button><button className="button secondary" onClick={() => setRefresh(value => value + 1)}><RefreshCw /> Try again</button></div></section> : featured ? <section className="hero movie-hero">
+        </div></section> : loading ? <section className="loading-state" role="status"><div className="loading-reel"><Clapperboard size={38} /></div><h1>Opening your library</h1><p>Finding the videos in your Drive folder…</p></section> : loadError ? <section className="empty-state error-state" role="alert"><AlertCircle size={40} /><h1>Let’s reconnect your library</h1><p>{loadError}</p><div className="actions"><button className="button secondary" onClick={() => setRefresh(value => value + 1)}><RefreshCw /> Try again</button></div></section> : featured ? <section className="hero movie-hero">
           <Artwork title={featuredInfo.title} className="hero-art" artwork={artworkById[featured.id]} eager /><div className="hero-shade" />
           <div className="hero-content"><span className="source-label"><span className="live-dot" /> In your Drive library</span>
             <h1 className="movie-title">{featuredInfo.title}</h1><Badges file={featured} />
@@ -195,7 +190,7 @@ export default function App() {
       <footer className="site-footer"><span>DRIVE TV<span className="footer-dot">•</span>Your personal picture house<button className="text-button credits-link" onClick={() => setDialog('credits')}>Credits</button></span><span><span className="status-dot" />{config && !loadError ? 'Google Drive connected' : 'Bring your own library'}</span></footer>
     </div>
 
-    {dialog === 'settings' && <SettingsPanel config={config} onSave={saveSettings} onForget={forget} onClose={() => setDialog(null)} />}
+    {!config && dialog === 'settings' && <SettingsPanel onSave={saveSettings} onClose={() => setDialog(null)} />}
     {dialog === 'details' && details && <Modal label="Movie details" onClose={() => setDialog(null)} className="details-modal"><Artwork title={movieInfo(details).title} className="details-art" artwork={artworkById[details.id]} eager /><div className="details-body"><h2>{movieInfo(details).title}</h2><Badges file={details} /><p className="muted file-name">{details.name}</p><p className="muted">Playback uses the original file. Video and audio support depend on your TV or browser.</p><button className="button primary" onClick={() => openPlayer(details)}><Play fill="currentColor" />{progress[details.id] ? 'Resume movie' : 'Play movie'}</button></div></Modal>}
     {dialog === 'credits' && <Modal label="Credits" onClose={() => setDialog(null)}><h2>Credits</h2><a href="https://www.themoviedb.org" target="_blank" rel="noreferrer"><img className="tmdb-logo" src={`${import.meta.env.BASE_URL}brand/tmdb.svg`} alt="TMDB" /></a><p className="muted">This product uses the TMDB API but is not endorsed or certified by TMDB.</p><p className="muted">Movie artwork is matched using your subfolder names. Unmatched movies keep the default title artwork.</p></Modal>}
     {active && <Player file={active.file} apiKey={config.key} resume={active.resume} onProgress={saveProgress} onClose={closePlayer} />}

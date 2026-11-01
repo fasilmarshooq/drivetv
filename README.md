@@ -22,7 +22,7 @@ Optional build-time defaults in `.env.local`:
 | `VITE_GOOGLE_DRIVE_FOLDER` | Default folder URL or ID |
 | `VITE_TMDB_READ_TOKEN` | TMDB API Read Access Token for artwork |
 
-With both Drive values, a new device opens the library automatically. Otherwise use Settings to enter a public folder and API key. Browser-saved settings override deployment defaults. Watched positions and optional overrides stay in local storage. **Forget this device** clears these and the artwork cache for this visit; reloading restores any build defaults.
+With both Drive values, a new device opens the library automatically. Otherwise use Connect Google Drive to enter your own public folder and API key. Browser-saved settings override deployment defaults. Watched positions and optional overrides stay in local storage. Clear this site’s browser data to remove saved settings, watch history and artwork cache. The library has no Settings button or profile badge, and deployment keys are never prefilled into the connection form.
 
 Environment files, dependencies, generated decoder assets and build output are excluded from Git. **All `VITE_*` values are public in the deployed JavaScript.** Environment variables keep them out of source history; they do not hide them from site visitors. Never put service-account credentials or private access tokens in these variables. Restrict the Google key to Drive API and the intended website origins. A public folder is public independently of this app.
 

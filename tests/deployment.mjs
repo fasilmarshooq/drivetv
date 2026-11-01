@@ -38,14 +38,14 @@ try {
   const tmdb = requests.find(request => request.url().startsWith('https://api.themoviedb.org/'));
   assert.equal(tmdb.headers().authorization, 'Bearer deployment-tmdb-token');
   assert.equal(await page.evaluate(() => localStorage.getItem('drive-tv.settings')), null, 'defaults need no saved browser settings');
-  await page.getByRole('button', { name: 'Settings', exact: true }).click();
-  assert.equal(await page.getByLabel('Google Drive API key').inputValue(), 'deployment-drive-key');
-  await page.getByLabel('Google Drive API key').fill('override-key');
-  await page.getByRole('button', { name: 'Save and reload', exact: true }).click();
+  assert.equal(await page.getByRole('button', { name: 'Settings', exact: true }).count(), 0);
+  assert.equal(await page.locator('.profile').count(), 0);
+  assert.equal(await page.getByLabel('Google Drive API key', { exact: true }).count(), 0);
+  await page.evaluate(() => localStorage.setItem('drive-tv.settings', JSON.stringify({ folder: 'deployment_folder_123', key: 'override-key' })));
+  const override = page.waitForRequest(request => request.url().startsWith('https://www.googleapis.com/'));
   await page.reload();
-  await page.getByRole('button', { name: 'Settings', exact: true }).click();
-  assert.equal(await page.getByLabel('Google Drive API key').inputValue(), 'override-key');
-  console.log('PASS: fresh-device deployment defaults, Drive folder/key, TMDB token, no settings write, remembered device override.');
+  assert.equal((await override).headers()['x-goog-api-key'], 'override-key');
+  console.log('PASS: fresh-device deployment defaults, Drive folder/key, TMDB token, no key controls/profile, remembered device override.');
 } finally {
   await browser.close();
   await server.close();

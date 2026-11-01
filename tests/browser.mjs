@@ -65,12 +65,10 @@ try {
   await page.waitForFunction(() => document.activeElement === document.querySelector('[data-hero-play]'), null, { timeout: 2000 });
   await page.reload();
   await page.getByRole('heading', { name: 'Baththa', exact: true }).waitFor();
-  await page.getByRole('button', { name: 'Settings', exact: true }).click();
-  await page.getByRole('button', { name: 'Forget this device', exact: true }).click();
-  assert.equal(await page.getByRole('button', { name: 'Connect Google Drive', exact: true }).isVisible(), true);
-  assert.equal(await page.evaluate(() => localStorage.getItem('drive-tv.settings')), null);
+  assert.equal(await page.getByRole('button', { name: 'Settings', exact: true }).count(), 0);
+  assert.equal(await page.locator('.profile').count(), 0);
   await page.setViewportSize({ width: 390, height: 844 });
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
   assert.deepEqual(errors, []);
-  console.log('PASS: connect, list, search, remote navigation, details, playback/seek, Back/focus, persistence, forget, mobile width; no page errors.');
+  console.log('PASS: connect, list, search, remote navigation, details, playback/seek, Back/focus, persistence, mobile width; no page errors.');
 } finally { await browser.close(); }

@@ -26,7 +26,6 @@ p { line-height: 1.65; }
 .header-tools { display: flex; align-items: center; gap: 17px; margin-left: auto; }
 .icon-button { display: inline-flex; align-items: center; justify-content: center; padding: 10px; background: none; border: none; border-radius: 5px; color: #cbc8c5; min-width: 40px; min-height: 40px; }
 .icon-button:hover { color: white; background: #ffffff12; }
-.profile { width: 35px; height: 35px; border-radius: 6px; background: #76585d; display: grid; place-items: center; font-size: 14px; font-weight: 600; }
 .search-field { display: flex; gap: 9px; align-items: center; color: #c9c5c3; border-bottom: 1px solid #ffffff35; }
 .search-field input { background: none; border: none; color: white; padding: 11px 0; width: 165px; font-size: 13px; border-radius: 0; }
 .search-field input::placeholder { color: #b0acab; }
@@ -116,7 +115,6 @@ form input { width: 100%; background: #0e0e0f; border: 1px solid #ffffff22; padd
 .key-input input { padding-right: 52px; }
 .key-input .icon-button { position: absolute; top: 4px; right: 4px; }
 .wide { width: 100%; margin-top: 28px; }
-.forget { margin-top: 20px; display: block; width: 100%; color: #b8aaa4; }
 .form-error { color: #f3b1b1; font-size: 13px; margin-top: 17px; }
 .details-modal { padding: 0; overflow: hidden; }
 .details-art { height: 260px; }
@@ -158,7 +156,6 @@ form input { width: 100%; background: #0e0e0f; border: 1px solid #ffffff22; padd
   .hero-content { max-width: 510px; }
   .welcome-bottom { gap: 25px; }
   .search-field input { width: 135px; }
-  .profile { display: none; }
 }
 @media (max-width: 600px) {
   .site-header { height: 78px; padding: 0 6%; gap: 15px; position: absolute; }

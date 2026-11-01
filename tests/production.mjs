@@ -40,6 +40,8 @@ try {
     await page.getByRole('button', { name: 'Open library', exact: true }).click();
   }
   await page.locator('.movie-title').waitFor();
+  assert.equal(await page.getByRole('button', { name: 'Settings', exact: true }).count(), 0);
+  assert.equal(await page.locator('.profile').count(), 0);
   assert.ok((await page.locator('.movie-title').textContent()).includes('<img'));
   assert.equal(await page.evaluate(() => window.__xss), undefined);
   assert.equal(await page.locator('[onerror]').count(), 0, 'movie names must remain text');
