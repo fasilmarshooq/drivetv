@@ -1,6 +1,6 @@
 import { readSaved, writeSaved } from './storage.js';
 
-export const ARTWORK_CACHE_KEY = 'drive-tv.tmdb-artwork.v1';
+export const ARTWORK_CACHE_KEY = 'drive-tv.tmdb-artwork.v2';
 const DAY = 86400000;
 const normalize = value => String(value || '').normalize('NFKC').trim().replace(/\s+/g, ' ').toLowerCase();
 
@@ -19,8 +19,9 @@ function artworkFor(results, query) {
   if (!match || !Number.isInteger(match.id) || match.id <= 0) return null;
   const posterUrl = imageUrl(match.poster_path, 'w500');
   const backdropUrl = imageUrl(match.backdrop_path, 'w1280');
-  if (!posterUrl && !backdropUrl) return null;
-  return { id: match.id, title: match.title, posterUrl, backdropUrl };
+  const title = typeof match.title === 'string' && match.title.trim() ? match.title.trim()
+    : typeof match.original_title === 'string' ? match.original_title.trim() : '';
+  return { id: match.id, title, posterUrl, backdropUrl };
 }
 
 export async function loadFolderArtwork(files, { token, storage, fetcher = fetch, signal, onArtwork = () => {}, now = Date.now } = {}) {
@@ -39,7 +40,7 @@ export async function loadFolderArtwork(files, { token, storage, fetcher = fetch
   for (const [key, group] of groups) {
     checkCancelled(signal);
     let artwork = null;
-    if (cache[key]?.expires > now() && Object.hasOwn(cache[key], 'artwork')) {
+    if (cache[key]?.expires > now() && Object.prototype.hasOwnProperty.call(cache[key], 'artwork')) {
       artwork = cache[key].artwork;
     } else {
       try {
@@ -64,4 +65,57 @@ export async function loadFolderArtwork(files, { token, storage, fetcher = fetch
     onArtwork(group.ids, artwork);
   }
   return result;
+}
+
+function diagnosticImage(url, signal) {
+  return new Promise(resolve => {
+    const image = new Image();
+    const finish = state => {
+      image.onload = null; image.onerror = null;
+      signal.removeEventListener('abort', cancel);
+      resolve(state);
+    };
+    const cancel = () => finish('timeout');
+    image.onload = () => finish(image.naturalWidth > 0 ? 'working' : 'failed');
+    image.onerror = () => finish('failed');
+    signal.addEventListener('abort', cancel, { once: true });
+    if (signal.aborted) cancel();
+    else image.src = url;
+  });
+}
+
+// Only safe stage/status values leave this check. Never return URLs, keys or raw errors.
+export async function checkArtworkConnection({ token, fetcher = fetch, loadImage = diagnosticImage, signal, timeoutMs = 10000 } = {}) {
+  if (!token?.trim()) return { lookup: 'not-configured', image: 'not-tested' };
+  checkCancelled(signal);
+  const controller = new AbortController();
+  const cancel = () => controller.abort();
+  signal?.addEventListener('abort', cancel, { once: true });
+  const timer = setTimeout(cancel, timeoutMs);
+  try {
+    let response;
+    let artwork;
+    try {
+      const params = new URLSearchParams({ query: 'Big Buck Bunny', include_adult: 'false', language: 'en-US' });
+      response = await fetcher(`https://api.themoviedb.org/3/search/movie?${params}`, {
+        headers: { Authorization: `Bearer ${token.trim().replace(/^Bearer\s+/i, '')}` }, signal: controller.signal,
+      });
+      if (!response.ok) return { lookup: 'failed', image: 'not-tested', status: response.status };
+      artwork = artworkFor((await response.json()).results, 'Big Buck Bunny');
+    } catch {
+      checkCancelled(signal);
+      return { lookup: controller.signal.aborted ? 'timeout' : 'failed', image: 'not-tested' };
+    }
+    checkCancelled(signal);
+    const imageUrl = artwork?.posterUrl || artwork?.backdropUrl;
+    if (!imageUrl) return { lookup: 'working', image: 'no-image', status: response.status };
+    let image;
+    try { image = await loadImage(imageUrl, controller.signal); }
+    catch { image = controller.signal.aborted ? 'timeout' : 'failed'; }
+    checkCancelled(signal);
+    return { lookup: 'working', image, status: response.status };
+  } finally {
+    clearTimeout(timer);
+    signal?.removeEventListener('abort', cancel);
+  }
 }

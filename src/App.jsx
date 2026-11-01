@@ -7,7 +7,8 @@ import { movieInfo, clockTime } from './media.js';
 import Modal from './Modal.jsx';
 import Player from './Player.jsx';
 import Artwork from './Artwork.jsx';
-import { loadFolderArtwork } from './tmdb.js';
+import ArtworkCheck from './ArtworkCheck.jsx';
+import { ARTWORK_CACHE_KEY, loadFolderArtwork } from './tmdb.js';
 import { TMDB_TOKEN, DEFAULT_FOLDER, SETTINGS_KEY, initialConfig } from './config.js';
 const PROGRESS_KEY = 'drive-tv.progress';
 
@@ -48,7 +49,7 @@ function SettingsPanel({ onSave, onClose }) {
 }
 
 function MovieCard({ file, saved, onPlay, artwork }) {
-  const info = movieInfo(file);
+  const info = movieInfo(file, artwork);
   return <button className="movie-card" onClick={() => onPlay(file)} aria-label={`Open ${info.title}`}>
     <div className="card-art"><Artwork title={info.title} artwork={artwork} /><span className="card-format">{info.resolution || info.format}</span><span className="card-play"><Play size={25} fill="currentColor" /></span>
       {saved && <span className="progress-track"><span style={{ width: `${Math.min(100, saved.time / saved.duration * 100)}%` }} /></span>}
@@ -74,6 +75,7 @@ export default function App() {
   });
   const [storageNotice, setStorageNotice] = useState('');
   const lastTrigger = useRef(null);
+  const artworkRequest = useRef(null);
 
   useEffect(() => {
     if (!config) { setFiles([]); setLoading(false); return; }
@@ -89,6 +91,7 @@ export default function App() {
 
   useEffect(() => {
     const controller = new AbortController();
+    artworkRequest.current = controller;
     setArtworkById({});
     loadFolderArtwork(files, {
       token: TMDB_TOKEN, storage: deviceStorage(), signal: controller.signal,
@@ -145,9 +148,15 @@ export default function App() {
     setStorageNotice(saved ? '' : 'Your browser cannot save settings. The library will work until you close this page.');
     setConfig(value); setDialog(null); setSearch('');
   }
+  function refreshLibrary() {
+    artworkRequest.current?.abort();
+    try { deviceStorage()?.removeItem(ARTWORK_CACHE_KEY); } catch { /* Storage can be unavailable. */ }
+    setRefresh(value => value + 1);
+  }
   const featured = files[0];
-  const featuredInfo = featured && movieInfo(featured);
-  const visible = files.filter(file => movieInfo(file).title.toLowerCase().includes(search.toLowerCase()));
+  const featuredInfo = featured && movieInfo(featured, artworkById[featured.id]);
+  const detailsInfo = details && movieInfo(details, artworkById[details.id]);
+  const visible = files.filter(file => `${movieInfo(file, artworkById[file.id]).title} ${movieInfo(file).title}`.toLowerCase().includes(search.toLowerCase()));
   const continuing = files.filter(file => progress[file.id]).sort((a, b) => progress[b.id].updated - progress[a.id].updated);
   const openDetails = file => { setDetails(file); setDialog('details'); };
 
@@ -167,7 +176,7 @@ export default function App() {
           <p className="hero-description">A quiet place for your movie nights. Connect your Google Drive, pick something good, and press play.</p>
           <div className="actions"><button className="button primary" onClick={() => setDialog('settings')}><FolderOpen size={21} />Connect Google Drive</button></div>
           <p className="hero-footnote">No sign-in. Just your shared folder.</p>
-        </div></section> : loading ? <section className="loading-state" role="status"><div className="loading-reel"><Clapperboard size={38} /></div><h1>Opening your library</h1><p>Finding the videos in your Drive folder…</p></section> : loadError ? <section className="empty-state error-state" role="alert"><AlertCircle size={40} /><h1>Let’s reconnect your library</h1><p>{loadError}</p><div className="actions"><button className="button secondary" onClick={() => setRefresh(value => value + 1)}><RefreshCw /> Try again</button></div></section> : featured ? <section className="hero movie-hero">
+        </div></section> : loading ? <section className="loading-state" role="status"><div className="loading-reel"><Clapperboard size={38} /></div><h1>Opening your library</h1><p>Finding the videos in your Drive folder…</p></section> : loadError ? <section className="empty-state error-state" role="alert"><AlertCircle size={40} /><h1>Let’s reconnect your library</h1><p>{loadError}</p><div className="actions"><button className="button secondary" onClick={refreshLibrary}><RefreshCw /> Try again</button></div></section> : featured ? <section className="hero movie-hero">
           <Artwork title={featuredInfo.title} className="hero-art" artwork={artworkById[featured.id]} eager /><div className="hero-shade" />
           <div className="hero-content"><span className="source-label"><span className="live-dot" /> In your Drive library</span>
             <h1 className="movie-title">{featuredInfo.title}</h1><Badges file={featured} />
@@ -176,12 +185,12 @@ export default function App() {
               <button className="button secondary" onClick={() => openDetails(featured)}><Info size={22} />Details</button></div>
             {progress[featured.id] && <button className="text-button restart" onClick={() => openPlayer(featured, true)}>Play from the beginning</button>}
           </div>
-        </section> : <section className="empty-state"><FolderOpen size={40} /><h1>Your library is ready for movies</h1><p>Add videos to this Drive folder or any of its subfolders, then refresh.</p><button className="button primary" onClick={() => setRefresh(value => value + 1)}><RefreshCw /> Refresh library</button></section>}
+        </section> : <section className="empty-state"><FolderOpen size={40} /><h1>Your library is ready for movies</h1><p>Add videos to this Drive folder or any of its subfolders, then refresh.</p><button className="button primary" onClick={refreshLibrary}><RefreshCw /> Refresh library</button></section>}
 
         {storageNotice && <p className="storage-notice" role="status">{storageNotice}</p>}
         {config && !loading && !loadError && files.length > 0 && <div className="library-content" id="library">
           {!search && continuing.length > 0 && <section className="library-section"><div className="section-heading"><h2>Continue watching</h2><span>Pick up where you left off</span></div><div className="movie-row">{continuing.map(file => <MovieCard key={file.id} file={file} saved={progress[file.id]} onPlay={openPlayer} artwork={artworkById[file.id]} />)}</div></section>}
-          <section className="library-section"><div className="section-heading"><h2>{search ? 'Search results' : 'Your collection'}</h2><div className="collection-tools"><span>{visible.length} {visible.length === 1 ? 'video' : 'videos'}</span><button className="icon-button" aria-label="Refresh library" onClick={() => setRefresh(value => value + 1)}><RefreshCw size={18} /></button></div></div>
+          <section className="library-section"><div className="section-heading"><h2>{search ? 'Search results' : 'Your collection'}</h2><div className="collection-tools"><span>{visible.length} {visible.length === 1 ? 'video' : 'videos'}</span><button className="icon-button" aria-label="Refresh library" onClick={refreshLibrary}><RefreshCw size={18} /></button></div></div>
             {visible.length ? <div className="movie-row">{visible.map(file => <MovieCard key={file.id} file={file} saved={progress[file.id]} onPlay={openPlayer} artwork={artworkById[file.id]} />)}</div> : <div className="search-empty"><Search /><h3>No matching videos</h3><p>Try another title.</p><button className="text-button" onClick={() => setSearch('')}>Clear search</button></div>}
           </section>
         </div>}
@@ -191,8 +200,9 @@ export default function App() {
     </div>
 
     {!config && dialog === 'settings' && <SettingsPanel onSave={saveSettings} onClose={() => setDialog(null)} />}
-    {dialog === 'details' && details && <Modal label="Movie details" onClose={() => setDialog(null)} className="details-modal"><Artwork title={movieInfo(details).title} className="details-art" artwork={artworkById[details.id]} eager /><div className="details-body"><h2>{movieInfo(details).title}</h2><Badges file={details} /><p className="muted file-name">{details.name}</p><p className="muted">Playback uses the original file. Video and audio support depend on your TV or browser.</p><button className="button primary" onClick={() => openPlayer(details)}><Play fill="currentColor" />{progress[details.id] ? 'Resume movie' : 'Play movie'}</button></div></Modal>}
-    {dialog === 'credits' && <Modal label="Credits" onClose={() => setDialog(null)}><h2>Credits</h2><a href="https://www.themoviedb.org" target="_blank" rel="noreferrer"><img className="tmdb-logo" src={`${import.meta.env.BASE_URL}brand/tmdb.svg`} alt="TMDB" /></a><p className="muted">This product uses the TMDB API but is not endorsed or certified by TMDB.</p><p className="muted">Movie artwork is matched using your subfolder names. Unmatched movies keep the default title artwork.</p></Modal>}
-    {active && <Player file={active.file} apiKey={config.key} resume={active.resume} onProgress={saveProgress} onClose={closePlayer} />}
+    {dialog === 'details' && details && <Modal label="Movie details" onClose={() => setDialog(null)} className="details-modal"><Artwork title={detailsInfo.title} className="details-art" artwork={artworkById[details.id]} eager /><div className="details-body"><h2>{detailsInfo.title}</h2><Badges file={details} /><p className="muted file-name">{details.name}</p><p className="muted">Playback uses the original file. Video and audio support depend on your TV or browser.</p><button className="button primary" onClick={() => openPlayer(details)}><Play fill="currentColor" />{progress[details.id] ? 'Resume movie' : 'Play movie'}</button>{progress[details.id] && <button className="text-button restart" onClick={() => openPlayer(details, true)}>Play from the beginning</button>}</div></Modal>}
+    {dialog === 'credits' && <Modal label="Credits" onClose={() => setDialog(null)}><h2>Credits</h2><a href="https://www.themoviedb.org" target="_blank" rel="noreferrer"><img className="tmdb-logo" src={`${import.meta.env.BASE_URL}brand/tmdb.svg`} alt="TMDB" /></a><p className="muted">This product uses the TMDB API but is not endorsed or certified by TMDB.</p><p className="muted">Movie artwork is matched using your subfolder names. Unmatched movies keep the default title artwork.</p><button className="button secondary" onClick={() => setDialog('artwork-check')}>Check artwork</button></Modal>}
+    {dialog === 'artwork-check' && <ArtworkCheck token={TMDB_TOKEN} onClose={() => setDialog(null)} onRefresh={refreshLibrary} />}
+    {active && <Player file={active.file} metadata={artworkById[active.file.id]} apiKey={config.key} resume={active.resume} onProgress={saveProgress} onClose={closePlayer} />}
   </>;
 }

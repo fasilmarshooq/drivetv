@@ -13,7 +13,7 @@ const server = await createServer({
 });
 await server.listen();
 try {
-  for (const file of ['focus.mjs', 'browser.mjs', 'artwork.mjs', 'player.mjs']) {
+  for (const file of ['focus.mjs', 'browser.mjs', 'artwork.mjs', 'player.mjs', 'library.mjs']) {
     await new Promise((resolve, reject) => {
       const child = spawn(process.execPath, [`tests/${file}`], {
         stdio: 'inherit', env: { ...process.env, APP_URL: 'http://127.0.0.1:5175' },

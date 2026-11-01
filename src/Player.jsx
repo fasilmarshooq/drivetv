@@ -17,7 +17,7 @@ videojs.getTech('Html5').registerSourceHandler({
   },
 }, 0);
 
-export default function Player({ file, apiKey, resume, onProgress, onClose }) {
+export default function Player({ file, metadata, apiKey, resume, onProgress, onClose }) {
   const host = useRef(null);
   const root = useRef(null);
   const player = useRef(null);
@@ -36,7 +36,7 @@ export default function Player({ file, apiKey, resume, onProgress, onClose }) {
   const [seekFeedback, setSeekFeedback] = useState('');
   const feedbackTimer = useRef(null);
   const lastPointer = useRef(0);
-  const info = movieInfo(file);
+  const info = movieInfo(file, metadata);
   const showControls = controlsVisible || paused || waiting || error;
   const revealControls = useCallback(() => {
     setControlsVisible(true);
