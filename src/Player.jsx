@@ -5,6 +5,7 @@ import { ArrowLeft, RotateCcw, RotateCw, Play, Pause, Maximize, ExternalLink, Al
 import { mediaUrl } from './drive.js';
 import { movieInfo, clockTime } from './media.js';
 import { moveFocus } from './navigation.js';
+import { fullscreenElement, enterFullscreen, leaveFullscreen } from './fullscreen.js';
 
 // Drive's download path has no file extension. Video.js otherwise rejects it
 // before requesting any bytes. Hand this source to the native media element,
@@ -53,9 +54,19 @@ export default function Player({ file, metadata, apiKey, resume, onProgress, onC
   }, [paused, waiting, error, activity]);
 
   useEffect(() => {
-    const changed = () => { setIsFullscreen(document.fullscreenElement === root.current); revealControls(); };
+    const changed = () => {
+      setIsFullscreen(fullscreenElement() === root.current);
+      root.current?.focus({ preventScroll: true });
+      revealControls();
+    };
     document.addEventListener('fullscreenchange', changed);
-    return () => { document.removeEventListener('fullscreenchange', changed); clearTimeout(feedbackTimer.current); };
+    document.addEventListener('webkitfullscreenchange', changed);
+    changed();
+    return () => {
+      document.removeEventListener('fullscreenchange', changed);
+      document.removeEventListener('webkitfullscreenchange', changed);
+      clearTimeout(feedbackTimer.current);
+    };
   }, [revealControls]);
 
   useEffect(() => {
@@ -123,11 +134,8 @@ export default function Player({ file, metadata, apiKey, resume, onProgress, onC
     revealControls();
   }
   async function fullscreen() {
-    try {
-      if (document.fullscreenElement) await document.exitFullscreen();
-      else if (root.current.requestFullscreen) await root.current.requestFullscreen();
-      else setNotice('Use your browser’s full screen option on this device.');
-    } catch { setNotice('Fullscreen is unavailable in this browser.'); }
+    const changed = fullscreenElement() ? await leaveFullscreen() : await enterFullscreen(root.current);
+    if (!changed) setNotice('Use your browser’s full screen option on this device.');
   }
   useEffect(() => {
     if (error) root.current.querySelector('.playback-error button')?.focus();
@@ -138,7 +146,7 @@ export default function Player({ file, metadata, apiKey, resume, onProgress, onC
       const consume = () => { event.preventDefault(); event.stopPropagation(); };
       if (['Escape', 'BrowserBack', 'GoBack'].includes(event.key) || [461, 10009].includes(event.keyCode)) {
         consume();
-        if (document.fullscreenElement) document.exitFullscreen().catch(() => onClose());
+        if (fullscreenElement()) void leaveFullscreen().then(exited => { if (!exited) onClose(); });
         else onClose();
         return;
       }

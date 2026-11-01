@@ -1,9 +1,11 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { flushSync } from 'react-dom';
 import { Play, Search, RefreshCw, Info, FolderOpen, ArrowRight, Clapperboard, MonitorPlay, X, Check, Eye, EyeOff, AlertCircle } from 'lucide-react';
 import { listVideos, parseFolder } from './drive.js';
 import { moveFocus } from './navigation.js';
 import { readSaved, writeSaved, progressEntry, deviceStorage } from './storage.js';
 import { movieInfo, clockTime } from './media.js';
+import { isTVBrowser, enterFullscreen } from './fullscreen.js';
 import Modal from './Modal.jsx';
 import Player from './Player.jsx';
 import Artwork from './Artwork.jsx';
@@ -132,8 +134,15 @@ export default function App() {
 
   function openPlayer(file, startOver = false) {
     lastTrigger.current = document.activeElement;
-    setDialog(null);
-    setActive({ file, resume: startOver ? 0 : progress[file.id]?.time || 0 });
+    const open = () => {
+      setDialog(null);
+      setActive({ file, resume: startOver ? 0 : progress[file.id]?.time || 0 });
+    };
+    if (isTVBrowser(navigator.userAgent)) {
+      // Mount the full player, then request within this same user gesture.
+      flushSync(open);
+      void enterFullscreen(document.querySelector('.player-screen'));
+    } else open();
   }
   const closePlayer = useCallback(() => {
     setActive(null);

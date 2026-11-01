@@ -7,22 +7,25 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
 const clip = readFileSync(new URL('./fixtures/playback.mp4', import.meta.url));
 const browser = await chromium.launch({ channel: 'chrome', headless: true });
 try {
+  async function configure(context) {
+    await context.addInitScript(() => localStorage.setItem('drive-tv.settings', JSON.stringify({ folder: 'folder_123456', key: 'fake-key' })));
+    await context.route('https://fonts.googleapis.com/**', route => route.abort());
+    await context.route('https://api.themoviedb.org/**', route => route.fulfill({ json: { results: [] } }));
+    await context.route('https://www.googleapis.com/**', route => {
+      if (!new URL(route.request().url()).searchParams.has('alt')) {
+        return route.fulfill({ json: { files: [{ id: 'movie_123456', name: 'Remote playback test.mp4', mimeType: 'video/mp4' }] } });
+      }
+      const range = route.request().headers().range?.match(/bytes=(\d+)-(\d*)/);
+      const headers = { 'Access-Control-Allow-Origin': '*', 'Accept-Ranges': 'bytes' };
+      if (!range) return route.fulfill({ body: clip, contentType: 'video/mp4', headers });
+      const start = Number(range[1]);
+      const end = Math.min(range[2] ? Number(range[2]) : clip.length - 1, clip.length - 1);
+      if (start >= clip.length) return route.fulfill({ status: 416, headers: { ...headers, 'Content-Range': `bytes */${clip.length}` } });
+      return route.fulfill({ status: 206, body: clip.subarray(start, end + 1), contentType: 'video/mp4', headers: { ...headers, 'Content-Range': `bytes ${start}-${end}/${clip.length}` } });
+    });
+  }
   const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
-  await context.addInitScript(() => localStorage.setItem('drive-tv.settings', JSON.stringify({ folder: 'folder_123456', key: 'fake-key' })));
-  await context.route('https://fonts.googleapis.com/**', route => route.abort());
-  await context.route('https://api.themoviedb.org/**', route => route.fulfill({ json: { results: [] } }));
-  await context.route('https://www.googleapis.com/**', route => {
-    if (!new URL(route.request().url()).searchParams.has('alt')) {
-      return route.fulfill({ json: { files: [{ id: 'movie_123456', name: 'Remote playback test.mp4', mimeType: 'video/mp4' }] } });
-    }
-    const range = route.request().headers().range?.match(/bytes=(\d+)-(\d*)/);
-    const headers = { 'Access-Control-Allow-Origin': '*', 'Accept-Ranges': 'bytes' };
-    if (!range) return route.fulfill({ body: clip, contentType: 'video/mp4', headers });
-    const start = Number(range[1]);
-    const end = Math.min(range[2] ? Number(range[2]) : clip.length - 1, clip.length - 1);
-    if (start >= clip.length) return route.fulfill({ status: 416, headers: { ...headers, 'Content-Range': `bytes */${clip.length}` } });
-    return route.fulfill({ status: 206, body: clip.subarray(start, end + 1), contentType: 'video/mp4', headers: { ...headers, 'Content-Range': `bytes ${start}-${end}/${clip.length}` } });
-  });
+  await configure(context);
   const page = await context.newPage();
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
@@ -69,5 +72,27 @@ try {
   await page.waitForFunction(() => document.querySelector('video')?.currentTime >= 19);
   await page.keyboard.press('Escape');
   assert.deepEqual(errors, []);
-  console.log('PASS: direct remote ±10s from a focused control, OK play/pause, auto-hide/peek, edge-to-edge video, fullscreen Back, resume and focus; no live Google requests.');
+  await context.close();
+  for (const denyFullscreen of [false, true]) {
+    const tv = await browser.newContext({ userAgent: 'Mozilla/5.0 (Linux; Android TV 11) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36 com.tcl.browser/1.0' });
+    await configure(tv);
+    if (denyFullscreen) await tv.addInitScript(() => {
+      Element.prototype.requestFullscreen = () => Promise.reject(new DOMException('Fullscreen denied', 'NotAllowedError'));
+    });
+    const tvPage = await tv.newPage();
+    const tvErrors = [];
+    tvPage.on('pageerror', error => tvErrors.push(error.message));
+    await tvPage.goto(process.env.APP_URL || 'http://localhost:5173/');
+    await tvPage.getByRole('button', { name: 'Play Remote playback test', exact: true }).click();
+    await tvPage.waitForFunction(() => document.querySelector('video')?.currentTime > 0.1);
+    if (!denyFullscreen) {
+      await tvPage.waitForFunction(() => document.fullscreenElement?.classList.contains('player-screen'), null, { timeout: 2500 });
+      await tvPage.keyboard.press('Escape');
+      await tvPage.waitForFunction(() => !document.fullscreenElement);
+    } else assert.equal(await tvPage.evaluate(() => document.fullscreenElement), null);
+    await tvPage.keyboard.press('Escape');
+    assert.deepEqual(tvErrors, []);
+    await tv.close();
+  }
+  console.log('PASS: TV fullscreen on Play, denied-fullscreen playback fallback, and direct remote ±10s from a focused control, OK play/pause, auto-hide/peek, edge-to-edge video, fullscreen Back, resume and focus; no live Google requests.');
 } finally { await browser.close(); }
