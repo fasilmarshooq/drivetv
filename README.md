@@ -42,6 +42,8 @@ GitHub Pages is public. A server-side key service and device pairing are deferre
 
 The main player uses the browser's original-file decoder. The broadest target is MP4 with H.264 8-bit video and AAC stereo audio, with `faststart` metadata. MKV, HEVC 10-bit, Dolby audio and embedded subtitles depend on the device. Google download restrictions and limits can also prevent playback.
 
+The picture uses the full player area while preserving its aspect ratio. Controls overlay the picture and hide after three seconds of playback. Left/right seek by ten seconds from anywhere in the player; OK on the picture plays or pauses. Up/down reveal and move through controls; OK on a selected control activates it. Back exits fullscreen first, then returns to the library. Mouse, touch and the timeline remain available. Physical TV/browser key handling still needs device testing.
+
 Folder artwork searches TMDB using the immediate containing subfolder name, rather than the encoded filename. Loose files in the selected root, missing matches and failed images retain the generated title art. Matches are cached for seven days, misses for one day. Exact titles are preferred, otherwise the first search result is used. Attribution is in Credits.
 
 `compat.html` is a separate experimental libmedia player for browser-side Dolby decoding. It uses the same configured folder/key. `compat.html?sample=1` plays a bundled synthetic 12-second HEVC/E-AC3/subtitle sample without Google. Its tones are intentional. Continuous embedded text captions work in the tested desktop browser, but captions can disappear after seeking. Bitmap subtitles and resume history are not connected in this experiment. Actual TV compatibility still needs testing.
