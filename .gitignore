@@ -1,0 +1,18 @@
+node_modules/
+dist/
+.env*
+!.env.example
+test-results/
+public/vendor/libmedia/
+src/tmdb-credentials.local.js
+
+.test-dist/
+playwright-report/
+.DS_Store
+# Local conversation records; not application documentation.
+docs/progress.md
+docs/spec.md
+docs/superpowers/
+
+*.pem
+*.key
